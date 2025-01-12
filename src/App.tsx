@@ -1,15 +1,16 @@
-import { BrowserRouter as Router } from 'react-router-dom';
-import { ThemeProvider } from './components/providers';
-import { BookReader } from './components/BookReader';
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BookList } from './components/BookList'
+import { BookReader } from './components/BookReader'
+import { Settings } from './components/Settings'
 
-function App() {
+export default function App() {
   return (
-    <ThemeProvider>
-      <Router>
-        <BookReader />
-      </Router>
-    </ThemeProvider>
-  );
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<BookList />} />
+        <Route path="/book/:id" element={<BookReader />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
-
-export default App;
