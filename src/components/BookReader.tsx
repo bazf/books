@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/db';
 import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { analyzeImage } from '../lib/gemini';
 import { useTranslation } from '../hooks/useTranslation';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Sidebar } from './ui/sidebar';
 import { PageSidebar } from './PageSidebar';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -15,7 +15,6 @@ export function BookReader() {
   const navigate = useNavigate();
   const [book, setBook] = useState<Book | null>(null);
   const [showAddPage, setShowAddPage] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -95,12 +94,6 @@ export function BookReader() {
     reader.readAsDataURL(file);
   }
 
-  async function handleDeleteBook() {
-    if (!id) return;
-    await db.deleteBook(id);
-    navigate('/');
-  }
-
   async function handleDeletePage(pageId: string) {
     if (!book || !id) return;
     await db.deletePage(id, pageId);
@@ -170,13 +163,6 @@ export function BookReader() {
             <div className="space-x-2">
               <Button onClick={() => setShowAddPage(true)}>
                 {t('addPage')}
-              </Button>
-              <Button 
-                variant="destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                {t('deleteBook')}
               </Button>
               <Button onClick={() => navigate('/')}>
                 {t('back')}
@@ -298,31 +284,6 @@ export function BookReader() {
                   </>
                 )}
               </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t('deleteBookConfirmTitle')}</DialogTitle>
-                <DialogDescription>
-                  {t('deleteBookConfirmDescription')}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeleteConfirm(false)}
-                >
-                  {t('cancel')}
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteBook}
-                >
-                  {t('delete')}
-                </Button>
-              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>

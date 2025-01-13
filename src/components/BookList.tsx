@@ -2,14 +2,17 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { useBooks } from '../hooks/useBooks';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Trash2 } from 'lucide-react';
 
 export function BookList() {
-  const { books, loading, addBook } = useBooks();
+  const { books, loading, addBook, deleteBook } = useBooks();
   const navigate = useNavigate();
   const [showAddDialog, setShowAddDialog] = React.useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [bookToDelete, setBookToDelete] = React.useState<string | null>(null);
   const [newBookTitle, setNewBookTitle] = React.useState('');
 
   if (loading) {
@@ -38,6 +41,20 @@ export function BookList() {
     navigate(`/book/${newBook.id}`);
   };
 
+  const handleDeleteConfirm = async () => {
+    if (bookToDelete) {
+      await deleteBook(bookToDelete);
+      setBookToDelete(null);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBookToDelete(id);
+    setShowDeleteDialog(true);
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
@@ -62,18 +79,25 @@ export function BookList() {
       ) : (
         <div className="grid gap-4">
           {books.map((book) => (
-            <div key={book.id} className="flex items-center justify-between border p-4 rounded-lg">
+            <div 
+              key={book.id} 
+              className="relative flex items-center justify-between border p-4 rounded-lg hover:border-gray-400 dark:hover:border-gray-600 cursor-pointer"
+              onClick={() => navigate(`/book/${book.id}`)}
+            >
               <div>
                 <h3 className="text-lg font-semibold">{book.title}</h3>
                 <p className="text-sm text-gray-500">
                   Pages: {book.pages.length}
                 </p>
               </div>
-              <div className="space-x-2">
-                <Button onClick={() => navigate(`/book/${book.id}`)}>
-                  Open
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2 h-8 w-8 hover:text-red-500"
+                onClick={(e) => handleDeleteClick(book.id, e)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
@@ -101,6 +125,25 @@ export function BookList() {
             </Button>
             <Button onClick={handleAddBook}>
               Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Book</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this book? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
