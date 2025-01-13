@@ -12,36 +12,53 @@ interface BookReaderDB extends DBSchema {
 }
 
 class DatabaseService {
-  private db: Promise<IDBPDatabase<BookReaderDB>>;
-
-  constructor() {
-    this.db = openDB<BookReaderDB>('book-reader', 1, {
-      upgrade(db) {
-        db.createObjectStore('books');
-        db.createObjectStore('settings');
-      },
-    });
-  }
-
-  async getBooks(): Promise<Book[]> {
-    const db = await this.db;
-    return db.getAll('books');
-  }
-
-  async getBook(id: string): Promise<Book | undefined> {
-    const db = await this.db;
-    return db.get('books', id);
-  }
-
-  async saveBook(book: Book): Promise<void> {
-    const db = await this.db;
-    await db.put('books', book, book.id);
-  }
-
-  async deleteBook(id: string): Promise<void> {
-    const db = await this.db;
-    await db.delete('books', id);
-  }
+    private db: Promise<IDBPDatabase<BookReaderDB>>;
+  
+    constructor() {
+      this.db = openDB<BookReaderDB>('book-reader', 1, {
+        upgrade(db) {
+          // Check if stores exist before creating them
+          if (!db.objectStoreNames.contains('books')) {
+            db.createObjectStore('books');
+          }
+          if (!db.objectStoreNames.contains('settings')) {
+            db.createObjectStore('settings');
+          }
+        },
+      });
+    }
+  
+    async getBooks(): Promise<Book[]> {
+      const db = await this.db;
+      const books = await db.getAll('books');
+      console.log('Retrieved all books:', books);
+      return books;
+    }
+  
+    async getBook(id: string): Promise<Book | undefined> {
+      const db = await this.db;
+      const book = await db.get('books', id);
+      console.log('Retrieved book:', id, book);
+      return book;
+    }
+  
+    async saveBook(book: Book): Promise<void> {
+      console.log('Saving book:', book);
+      const db = await this.db;
+      await db.put('books', book, book.id);
+      
+      // Verify the save
+      const savedBook = await this.getBook(book.id);
+      console.log('Verified saved book:', savedBook);
+      if (!savedBook) {
+        throw new Error('Book failed to save properly');
+      }
+    }
+  
+    async deleteBook(id: string): Promise<void> {
+      const db = await this.db;
+      await db.delete('books', id);
+    }
 
   async getUserSettings(): Promise<UserSettings> {
     const db = await this.db;
