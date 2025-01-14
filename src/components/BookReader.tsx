@@ -7,11 +7,14 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { analyzeImage } from '../lib/gemini';
 import { useTranslation } from '../hooks/useTranslation';
-import { Loader2, Bookmark } from 'lucide-react';
+import { Loader2, Bookmark, Heart } from 'lucide-react';
 import { Sidebar } from './ui/sidebar';
 import { PageSidebar } from './PageSidebar';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
+
+// Utility function for class names
+const cn = (...classes: (string | undefined | boolean)[]) => classes.filter(Boolean).join(' ');
 
 export function BookReader() {
     const { id } = useParams<{ id: string }>();
@@ -39,19 +42,14 @@ export function BookReader() {
 
     const handleTouchEnd = (e: TouchEvent) => {
         if (!touchStart) return;
-
         const touchEnd = e.changedTouches[0].clientX;
         const distance = touchStart - touchEnd;
-
-        // Swipe left (close)
         if (distance > 50 && isSidebarOpen) {
             setIsSidebarOpen(false);
         }
-        // Swipe right (open)
         else if (distance < -50 && !isSidebarOpen) {
             setIsSidebarOpen(true);
         }
-
         setTouchStart(null);
     };
 
@@ -65,7 +63,6 @@ export function BookReader() {
 
     async function handleAddBookmark() {
         if (!book || !id) return;
-        
         const currentPage = book.pages[book.currentPage];
         if (!currentPage) return;
 
@@ -171,20 +168,17 @@ export function BookReader() {
 
     async function updateCurrentPage(pageIndex: number) {
         if (!book) return;
-
         const updatedBook = {
             ...book,
             currentPage: pageIndex,
             lastModified: Date.now()
         };
-
         await db.saveBook(updatedBook);
         setBook(updatedBook);
     }
 
     function getPageNavigationItems(): PageNavigationItem[] {
         if (!book?.pages) return [];
-
         return book.pages.map((page, index) => ({
             id: page.id,
             pageNumber: index + 1,
@@ -231,11 +225,29 @@ export function BookReader() {
                     <div className="container mx-auto p-4">
                         <div className="flex justify-between items-center">
                             <h1 className="text-2xl font-bold">{book.title}</h1>
-                            <div className="space-x-2">
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    variant={currentPageBookmark ? "secondary" : "ghost"}
+                                    size="icon"
+                                    onClick={() => currentPageBookmark 
+                                        ? handleRemoveBookmark(currentPageBookmark.id)
+                                        : setShowAddBookmark(true)
+                                    }
+                                    className="hover:text-red-500 transition-colors"
+                                    aria-label={currentPageBookmark ? t('removeBookmark') : t('addBookmark')}
+                                >
+                                    <Heart 
+                                        className={cn(
+                                            "w-5 h-5",
+                                            currentPageBookmark ? "fill-red-500 text-red-500" : ""
+                                        )}
+                                    />
+                                </Button>
                                 <Button 
                                     variant="outline"
                                     onClick={() => setShowBookmarksList(true)}
                                 >
+                                    <Bookmark className="w-4 h-4 mr-2" />
                                     {t('bookmarks')}
                                 </Button>
                                 <Button onClick={() => setShowAddPage(true)}>
@@ -255,22 +267,9 @@ export function BookReader() {
                         {currentPage && !currentPage.isDeleted && (
                             <>
                                 <div className="prose dark:prose-invert max-w-none mb-6 whitespace-pre-wrap">
-                                    <div className="flex justify-between items-center mb-4">
-                                        {currentPage.chapterTitle && (
-                                            <h2 className="text-xl font-semibold">{currentPage.chapterTitle}</h2>
-                                        )}
-                                        <Button
-                                            variant={currentPageBookmark ? "secondary" : "outline"}
-                                            size="sm"
-                                            onClick={() => currentPageBookmark 
-                                                ? handleRemoveBookmark(currentPageBookmark.id)
-                                                : setShowAddBookmark(true)
-                                            }
-                                        >
-                                            <Bookmark className="w-4 h-4 mr-2" />
-                                            {currentPageBookmark ? t('removeBookmark') : t('addBookmark')}
-                                        </Button>
-                                    </div>
+                                    {currentPage.chapterTitle && (
+                                        <h2 className="text-xl font-semibold mb-4">{currentPage.chapterTitle}</h2>
+                                    )}
                                     <div className="leading-relaxed">
                                         {currentPage.content}
                                     </div>
