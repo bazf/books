@@ -5,17 +5,27 @@ export interface Book {
     currentPage: number;
     language: string;
     createdAt: number;
-  }
-  
-  export interface BookPage {
+    bookmarks: Bookmark[];
+}
+
+export interface BookPage {
     id: string;
     content: string;
     chapterTitle?: string;
-  }
-  
-  export interface UserSettings {
+}
+
+export interface Bookmark {
+    id: string;
+    pageId: string;
+    title: string;
+    note?: string;
+    createdAt: number;
+    position: number; // Page position where bookmark was added
+}
+
+export interface UserSettings {
     darkMode: boolean;
     fontSize: number;
     language: string;
     geminiApiKey?: string;
-  }
+}

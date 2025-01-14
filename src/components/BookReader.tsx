@@ -2,13 +2,16 @@ import React, { useState, useEffect, TouchEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../lib/db';
 import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import { analyzeImage } from '../lib/gemini';
 import { useTranslation } from '../hooks/useTranslation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Bookmark } from 'lucide-react';
 import { Sidebar } from './ui/sidebar';
 import { PageSidebar } from './PageSidebar';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Textarea } from './ui/textarea';
 
 export function BookReader() {
     const { id } = useParams<{ id: string }>();
@@ -19,6 +22,10 @@ export function BookReader() {
     const [processingStatus, setProcessingStatus] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [showAddBookmark, setShowAddBookmark] = useState(false);
+    const [showBookmarksList, setShowBookmarksList] = useState(false);
+    const [bookmarkTitle, setBookmarkTitle] = useState('');
+    const [bookmarkNote, setBookmarkNote] = useState('');
     const { t } = useTranslation();
 
     useEffect(() => {
@@ -54,6 +61,37 @@ export function BookReader() {
         if (loadedBook) {
             setBook(loadedBook);
         }
+    }
+
+    async function handleAddBookmark() {
+        if (!book || !id) return;
+        
+        const currentPage = book.pages[book.currentPage];
+        if (!currentPage) return;
+
+        await db.addBookmark(id, {
+            pageId: currentPage.id,
+            title: bookmarkTitle || `Page ${book.currentPage + 1}`,
+            note: bookmarkNote || undefined,
+            position: book.currentPage
+        });
+
+        setBookmarkTitle('');
+        setBookmarkNote('');
+        setShowAddBookmark(false);
+        await loadBook();
+    }
+
+    async function handleRemoveBookmark(bookmarkId: string) {
+        if (!book || !id) return;
+        await db.removeBookmark(id, bookmarkId);
+        await loadBook();
+    }
+
+    async function handleGoToBookmark(position: number) {
+        if (!book) return;
+        await updateCurrentPage(position);
+        setShowBookmarksList(false);
     }
 
     async function handleImageUpload(file: File) {
@@ -163,6 +201,7 @@ export function BookReader() {
     const currentPage = book.pages[book.currentPage];
     const hasNextPage = book.currentPage < book.pages.length - 1;
     const hasPrevPage = book.currentPage > 0;
+    const currentPageBookmark = book.bookmarks?.find(b => b.position === book.currentPage);
 
     return (
         <div
@@ -193,6 +232,12 @@ export function BookReader() {
                         <div className="flex justify-between items-center">
                             <h1 className="text-2xl font-bold">{book.title}</h1>
                             <div className="space-x-2">
+                                <Button 
+                                    variant="outline"
+                                    onClick={() => setShowBookmarksList(true)}
+                                >
+                                    {t('bookmarks')}
+                                </Button>
                                 <Button onClick={() => setShowAddPage(true)}>
                                     {t('addPage')}
                                 </Button>
@@ -210,9 +255,22 @@ export function BookReader() {
                         {currentPage && !currentPage.isDeleted && (
                             <>
                                 <div className="prose dark:prose-invert max-w-none mb-6 whitespace-pre-wrap">
-                                    {currentPage.chapterTitle && (
-                                        <h2 className="text-xl font-semibold mb-4">{currentPage.chapterTitle}</h2>
-                                    )}
+                                    <div className="flex justify-between items-center mb-4">
+                                        {currentPage.chapterTitle && (
+                                            <h2 className="text-xl font-semibold">{currentPage.chapterTitle}</h2>
+                                        )}
+                                        <Button
+                                            variant={currentPageBookmark ? "secondary" : "outline"}
+                                            size="sm"
+                                            onClick={() => currentPageBookmark 
+                                                ? handleRemoveBookmark(currentPageBookmark.id)
+                                                : setShowAddBookmark(true)
+                                            }
+                                        >
+                                            <Bookmark className="w-4 h-4 mr-2" />
+                                            {currentPageBookmark ? t('removeBookmark') : t('addBookmark')}
+                                        </Button>
+                                    </div>
                                     <div className="leading-relaxed">
                                         {currentPage.content}
                                     </div>
@@ -276,6 +334,7 @@ export function BookReader() {
                     </div>
                 )}
 
+                {/* Add Page Dialog */}
                 <Dialog open={showAddPage} onOpenChange={setShowAddPage}>
                     <DialogContent>
                         <DialogHeader>
@@ -331,6 +390,103 @@ export function BookReader() {
                                 </>
                             )}
                         </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Add Bookmark Dialog */}
+                <Dialog open={showAddBookmark} onOpenChange={setShowAddBookmark}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{t('addBookmark')}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="bookmarkTitle">{t('bookmarkTitle')}</Label>
+                                <Input
+                                    id="bookmarkTitle"
+                                    value={bookmarkTitle}
+                                    onChange={(e) => setBookmarkTitle(e.target.value)}
+                                    placeholder={t('bookmarkTitlePlaceholder')}
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="bookmarkNote">{t('bookmarkNote')}</Label>
+                                <Textarea
+                                    id="bookmarkNote"
+                                    value={bookmarkNote}
+                                    onChange={(e) => setBookmarkNote(e.target.value)}
+                                    placeholder={t('bookmarkNotePlaceholder')}
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setShowAddBookmark(false)}>
+                                {t('cancel')}
+                            </Button>
+                            <Button onClick={handleAddBookmark}>
+                                {t('save')}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Bookmarks List Dialog */}
+                <Dialog open={showBookmarksList} onOpenChange={setShowBookmarksList}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{t('bookmarks')}</DialogTitle>
+                        </DialogHeader>
+                        <div className="max-h-[60vh] overflow-y-auto">
+                            {book.bookmarks && book.bookmarks.length > 0 ? (
+                                <div className="space-y-4">
+                                    {book.bookmarks
+                                        .sort((a, b) => a.position - b.position)
+                                        .map((bookmark) => (
+                                            <div
+                                                key={bookmark.id}
+                                                className="flex items-start justify-between p-4 border rounded-lg"
+                                            >
+                                                <div className="flex-1 mr-4">
+                                                    <h3 className="font-medium">{bookmark.title}</h3>
+                                                    {bookmark.note && (
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                            {bookmark.note}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-sm text-gray-500 mt-1">
+                                                        {t('page')} {bookmark.position + 1}
+                                                    </p>
+                                                </div>
+                                                <div className="flex space-x-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleGoToBookmark(bookmark.position)}
+                                                    >
+                                                        {t('goTo')}
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => handleRemoveBookmark(bookmark.id)}
+                                                    >
+                                                        {t('remove')}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                                    {t('noBookmarks')}
+                                </div>
+                            )}
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={() => setShowBookmarksList(false)}>
+                                {t('close')}
+                            </Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             </div>

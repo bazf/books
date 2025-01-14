@@ -25,127 +25,259 @@ class DatabaseService {
   private db: Promise<IDBPDatabase<BookReaderDB>>;
 
   constructor() {
-    this.db = openDB<BookReaderDB>('book-reader', 2, {
-      upgrade(db, oldVersion) {
-        // Handle version upgrades
+    this.db = openDB<BookReaderDB>('book-reader', 3, {
+      upgrade(db, oldVersion, newVersion, transaction) {
+        // Version 1: Initial setup
         if (oldVersion < 1) {
-          if (!db.objectStoreNames.contains('books')) {
-            const bookStore = db.createObjectStore('books');
-            bookStore.createIndex('by-title', 'title');
-            bookStore.createIndex('by-lastModified', 'lastModified');
-          }
-          if (!db.objectStoreNames.contains('settings')) {
-            db.createObjectStore('settings');
-          }
+          const bookStore = db.createObjectStore('books', { keyPath: 'id' });
+          bookStore.createIndex('by-title', 'title');
+          bookStore.createIndex('by-lastModified', 'lastModified');
+          db.createObjectStore('settings');
         }
         
-        // Add new stores and indexes for version 2
+        // Version 2: Add deleted books store
         if (oldVersion < 2) {
+          // Create deletedBooks store if it doesn't exist
           if (!db.objectStoreNames.contains('deletedBooks')) {
-            db.createObjectStore('deletedBooks');
+            db.createObjectStore('deletedBooks', { keyPath: 'id' });
           }
         }
+
+        // Version 3: Add bookmarks support
+        if (oldVersion < 3) {
+          const store = transaction.objectStore('books');
+          // Initialize bookmarks array for all existing books
+          store.getAll().then(books => {
+            books.forEach(book => {
+              if (!book.bookmarks) {
+                book.bookmarks = [];
+                store.put(book);
+              }
+            });
+          });
+        }
       },
+      blocked(currentVersion, blockedVersion, event) {
+        console.warn('Database upgrade blocked. Please close other tabs of this app.');
+      },
+      blocking(currentVersion, blockedVersion, event) {
+        console.warn('This tab is blocking database upgrade in other tabs.');
+      },
+      terminated() {
+        console.error('Database connection terminated unexpectedly.');
+      }
+    });
+
+    // Handle database connection errors
+    this.db.catch(error => {
+      console.error('Failed to connect to database:', error);
     });
   }
 
   async getBooks(): Promise<Book[]> {
-    const db = await this.db;
-    const books = await db.getAll('books');
-    return books;
+    try {
+      const db = await this.db;
+      const books = await db.getAll('books');
+      return books;
+    } catch (error) {
+      console.error('Error getting books:', error);
+      return [];
+    }
   }
 
   async getBook(id: string): Promise<Book | undefined> {
-    const db = await this.db;
-    const book = await db.get('books', id);
-    return book;
+    try {
+      const db = await this.db;
+      const book = await db.get('books', id);
+      return book;
+    } catch (error) {
+      console.error('Error getting book:', error);
+      return undefined;
+    }
   }
 
   async saveBook(book: Book): Promise<void> {
-    const db = await this.db;
-    // Ensure lastModified is set
-    const updatedBook = {
-      ...book,
-      lastModified: Date.now(),
-      deletedPages: book.deletedPages || []
-    };
-    await db.put('books', updatedBook, book.id);
+    try {
+      const db = await this.db;
+      // Ensure lastModified is set and bookmarks exist
+      const updatedBook = {
+        ...book,
+        lastModified: Date.now(),
+        bookmarks: book.bookmarks || [],
+        deletedPages: book.deletedPages || []
+      };
+      await db.put('books', updatedBook);
+    } catch (error) {
+      console.error('Error saving book:', error);
+      throw error;
+    }
+  }
+
+  async addBookmark(bookId: string, bookmark: Omit<Bookmark, 'id' | 'createdAt'>): Promise<void> {
+    try {
+      const book = await this.getBook(bookId);
+      if (!book) return;
+
+      const newBookmark: Bookmark = {
+        ...bookmark,
+        id: crypto.randomUUID(),
+        createdAt: Date.now()
+      };
+
+      await this.saveBook({
+        ...book,
+        bookmarks: [...(book.bookmarks || []), newBookmark]
+      });
+    } catch (error) {
+      console.error('Error adding bookmark:', error);
+      throw error;
+    }
+  }
+
+  async removeBookmark(bookId: string, bookmarkId: string): Promise<void> {
+    try {
+      const book = await this.getBook(bookId);
+      if (!book) return;
+
+      await this.saveBook({
+        ...book,
+        bookmarks: book.bookmarks.filter(b => b.id !== bookmarkId)
+      });
+    } catch (error) {
+      console.error('Error removing bookmark:', error);
+      throw error;
+    }
+  }
+
+  async updateBookmark(bookId: string, bookmarkId: string, updates: Partial<Bookmark>): Promise<void> {
+    try {
+      const book = await this.getBook(bookId);
+      if (!book) return;
+
+      await this.saveBook({
+        ...book,
+        bookmarks: book.bookmarks.map(b => 
+          b.id === bookmarkId ? { ...b, ...updates } : b
+        )
+      });
+    } catch (error) {
+      console.error('Error updating bookmark:', error);
+      throw error;
+    }
   }
 
   async deleteBook(id: string): Promise<void> {
-    const db = await this.db;
-    const book = await this.getBook(id);
-    if (book) {
-      // Move to deletedBooks store with timestamp
-      await db.put('deletedBooks', {
-        ...book,
-        deletedAt: Date.now()
-      }, id);
-      await db.delete('books', id);
+    try {
+      const db = await this.db;
+      const book = await this.getBook(id);
+      if (book) {
+        await db.put('deletedBooks', {
+          ...book,
+          deletedAt: Date.now()
+        });
+        await db.delete('books', id);
+      }
+    } catch (error) {
+      console.error('Error deleting book:', error);
+      throw error;
     }
   }
 
   async restoreBook(id: string): Promise<void> {
-    const db = await this.db;
-    const deletedBook = await db.get('deletedBooks', id);
-    if (deletedBook) {
-      const { deletedAt, ...bookData } = deletedBook;
-      await db.put('books', {
-        ...bookData,
-        lastModified: Date.now()
-      }, id);
-      await db.delete('deletedBooks', id);
+    try {
+      const db = await this.db;
+      const deletedBook = await db.get('deletedBooks', id);
+      if (deletedBook) {
+        const { deletedAt, ...bookData } = deletedBook;
+        await db.put('books', {
+          ...bookData,
+          lastModified: Date.now()
+        });
+        await db.delete('deletedBooks', id);
+      }
+    } catch (error) {
+      console.error('Error restoring book:', error);
+      throw error;
     }
   }
 
   async getDeletedBooks(): Promise<(Book & { deletedAt: number })[]> {
-    const db = await this.db;
-    return db.getAll('deletedBooks');
+    try {
+      const db = await this.db;
+      return db.getAll('deletedBooks');
+    } catch (error) {
+      console.error('Error getting deleted books:', error);
+      return [];
+    }
   }
 
   async deletePage(bookId: string, pageId: string): Promise<void> {
-    const book = await this.getBook(bookId);
-    if (!book) return;
+    try {
+      const book = await this.getBook(bookId);
+      if (!book) return;
 
-    const updatedPages = book.pages.map(page =>
-      page.id === pageId ? { ...page, isDeleted: true } : page
-    );
+      const updatedPages = book.pages.map(page =>
+        page.id === pageId ? { ...page, isDeleted: true } : page
+      );
 
-    await this.saveBook({
-      ...book,
-      pages: updatedPages,
-      deletedPages: [...(book.deletedPages || []), pageId]
-    });
+      await this.saveBook({
+        ...book,
+        pages: updatedPages,
+        deletedPages: [...(book.deletedPages || []), pageId]
+      });
+    } catch (error) {
+      console.error('Error deleting page:', error);
+      throw error;
+    }
   }
 
   async restorePage(bookId: string, pageId: string): Promise<void> {
-    const book = await this.getBook(bookId);
-    if (!book) return;
+    try {
+      const book = await this.getBook(bookId);
+      if (!book) return;
 
-    const updatedPages = book.pages.map(page =>
-      page.id === pageId ? { ...page, isDeleted: false } : page
-    );
+      const updatedPages = book.pages.map(page =>
+        page.id === pageId ? { ...page, isDeleted: false } : page
+      );
 
-    await this.saveBook({
-      ...book,
-      pages: updatedPages,
-      deletedPages: (book.deletedPages || []).filter(id => id !== pageId)
-    });
+      await this.saveBook({
+        ...book,
+        pages: updatedPages,
+        deletedPages: (book.deletedPages || []).filter(id => id !== pageId)
+      });
+    } catch (error) {
+      console.error('Error restoring page:', error);
+      throw error;
+    }
   }
 
   async getUserSettings(): Promise<UserSettings> {
-    const db = await this.db;
-    const settings = await db.get('settings', 'userSettings');
-    return settings || {
-      darkMode: false,
-      fontSize: 16,
-      language: 'en',
-    };
+    try {
+      const db = await this.db;
+      const settings = await db.get('settings', 'userSettings');
+      return settings || {
+        darkMode: false,
+        fontSize: 16,
+        language: 'en',
+      };
+    } catch (error) {
+      console.error('Error getting user settings:', error);
+      return {
+        darkMode: false,
+        fontSize: 16,
+        language: 'en',
+      };
+    }
   }
 
   async saveUserSettings(settings: UserSettings): Promise<void> {
-    const db = await this.db;
-    await db.put('settings', settings, 'userSettings');
+    try {
+      const db = await this.db;
+      await db.put('settings', settings, 'userSettings');
+    } catch (error) {
+      console.error('Error saving user settings:', error);
+      throw error;
+    }
   }
 }
 

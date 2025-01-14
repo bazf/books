@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../lib/db';
-import { Book } from '../types';
+import { Book, Bookmark } from '../types';
 
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -36,6 +36,21 @@ export function useBooks() {
     await loadBooks();
   }
 
+  async function addBookmark(bookId: string, bookmark: Omit<Bookmark, 'id' | 'createdAt'>) {
+    await db.addBookmark(bookId, bookmark);
+    await loadBooks();
+  }
+
+  async function removeBookmark(bookId: string, bookmarkId: string) {
+    await db.removeBookmark(bookId, bookmarkId);
+    await loadBooks();
+  }
+
+  async function updateBookmark(bookId: string, bookmarkId: string, updates: Partial<Bookmark>) {
+    await db.updateBookmark(bookId, bookmarkId, updates);
+    await loadBooks();
+  }
+
   return { 
     books, 
     deletedBooks,
@@ -43,6 +58,9 @@ export function useBooks() {
     addBook, 
     deleteBook,
     restoreBook,
+    addBookmark,
+    removeBookmark,
+    updateBookmark,
     reloadBooks: loadBooks 
   };
 }
