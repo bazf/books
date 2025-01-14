@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { analyzeImage } from '../lib/gemini';
 import { useTranslation } from '../hooks/useTranslation';
-import { Loader2, Bookmark, Heart } from 'lucide-react';
+import { Loader2, Bookmark, Heart, Plus, ArrowLeft } from 'lucide-react';
 import { Sidebar } from './ui/sidebar';
 import { PageSidebar } from './PageSidebar';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -229,32 +229,43 @@ export function BookReader() {
                                 <Button
                                     variant={currentPageBookmark ? "secondary" : "ghost"}
                                     size="icon"
-                                    onClick={() => currentPageBookmark 
+                                    onClick={() => currentPageBookmark
                                         ? handleRemoveBookmark(currentPageBookmark.id)
                                         : setShowAddBookmark(true)
                                     }
                                     className="hover:text-red-500 transition-colors"
                                     aria-label={currentPageBookmark ? t('removeBookmark') : t('addBookmark')}
                                 >
-                                    <Heart 
+                                    <Heart
                                         className={cn(
                                             "w-5 h-5",
                                             currentPageBookmark ? "fill-red-500 text-red-500" : ""
                                         )}
                                     />
                                 </Button>
-                                <Button 
-                                    variant="outline"
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => setShowBookmarksList(true)}
+                                    aria-label={t('bookmarks')}
                                 >
-                                    <Bookmark className="w-4 h-4 mr-2" />
-                                    {t('bookmarks')}
+                                    <Bookmark className="w-5 h-5" />
                                 </Button>
-                                <Button onClick={() => setShowAddPage(true)}>
-                                    {t('addPage')}
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setShowAddPage(true)}
+                                    aria-label={t('addPage')}
+                                >
+                                    <Plus className="w-5 h-5" />
                                 </Button>
-                                <Button onClick={() => navigate('/')}>
-                                    {t('back')}
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => navigate('/')}
+                                    aria-label={t('back')}
+                                >
+                                    <ArrowLeft className="w-5 h-5" />
                                 </Button>
                             </div>
                         </div>
