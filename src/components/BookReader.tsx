@@ -65,6 +65,7 @@ export function BookReader() {
             ...book,
             pages: [...(book.pages || []), newPage],
             currentPage: book.pages ? book.pages.length : 0,
+            lastModified: Date.now()
           };
           
           await db.saveBook(updatedBook);
@@ -111,7 +112,8 @@ export function BookReader() {
     
     const updatedBook = {
       ...book,
-      currentPage: pageIndex
+      currentPage: pageIndex,
+      lastModified: Date.now()
     };
     
     await db.saveBook(updatedBook);
@@ -119,7 +121,7 @@ export function BookReader() {
   }
 
   function getPageNavigationItems(): PageNavigationItem[] {
-    if (!book) return [];
+    if (!book?.pages) return [];
     
     return book.pages.map((page, index) => ({
       id: page.id,
@@ -172,11 +174,13 @@ export function BookReader() {
 
           {currentPage && !currentPage.isDeleted && (
             <>
-              <div className="prose dark:prose-invert max-w-none mb-6">
+              <div className="prose dark:prose-invert max-w-none mb-6 whitespace-pre-wrap">
                 {currentPage.chapterTitle && (
                   <h2 className="text-xl font-semibold mb-4">{currentPage.chapterTitle}</h2>
                 )}
-                <div dangerouslySetInnerHTML={{ __html: currentPage.content }} />
+                <div className="leading-relaxed">
+                  {currentPage.content}
+                </div>
               </div>
 
               <div className="flex justify-between items-center mt-8">
@@ -188,7 +192,7 @@ export function BookReader() {
                   {t('previousPage')}
                 </Button>
                 <span className="text-sm">
-                  {t('pageOf', { current: book.currentPage + 1, total: book.pages.length })}
+                  {book.currentPage + 1} / {book.pages.length}
                 </span>
                 <Button 
                   onClick={() => updateCurrentPage(book.currentPage + 1)}

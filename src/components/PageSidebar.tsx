@@ -1,4 +1,3 @@
-// src/components/PageSidebar.tsx
 import React from 'react';
 import { Trash2, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
@@ -34,13 +33,13 @@ export function PageSidebar({
   return (
     <div className="p-4">
       <h2 className="text-lg font-semibold mb-4">{t('pages')}</h2>
-      <div className="space-y-2">
+      <div className="space-y-2 h-[calc(100vh-8rem)] overflow-y-auto">
         {pages.map((page) => (
           <div
             key={page.id}
             className={cn(
               'p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700',
-              'border-l-4',
+              'border-l-4 group relative',
               currentPage === page.pageNumber - 1
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
                 : 'border-transparent',
@@ -49,14 +48,14 @@ export function PageSidebar({
             onClick={() => onPageSelect(page.id)}
           >
             <div className="flex justify-between items-start">
-              <div>
+              <div className="flex-1 min-w-0 pr-2">
                 {page.chapterTitle && (
-                  <div className="text-sm font-medium">{page.chapterTitle}</div>
+                  <div className="text-sm font-medium truncate">{page.chapterTitle}</div>
                 )}
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   {t('page')} {page.pageNumber}
                 </div>
-                <div className="text-sm truncate">{page.excerpt}</div>
+                <div className="text-sm truncate max-w-[180px]">{page.excerpt}</div>
               </div>
               <div className="flex space-x-1">
                 {page.isDeleted ? (
@@ -67,7 +66,7 @@ export function PageSidebar({
                       e.stopPropagation();
                       onPageRestore(page.id);
                     }}
-                    className="h-8 w-8"
+                    className="h-8 w-8 opacity-100"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </Button>
@@ -79,7 +78,7 @@ export function PageSidebar({
                       e.stopPropagation();
                       onPageDelete(page.id);
                     }}
-                    className="h-8 w-8"
+                    className="h-8 w-8 opacity-100"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
