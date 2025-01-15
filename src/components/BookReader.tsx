@@ -12,6 +12,7 @@ import { Sidebar } from './ui/sidebar';
 import { PageSidebar } from './PageSidebar';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
+import { useDoubleTap } from '../hooks/useDoubleTap';
 
 // Utility function for class names
 const cn = (...classes: (string | undefined | boolean)[]) => classes.filter(Boolean).join(' ');
@@ -29,7 +30,12 @@ export function BookReader() {
     const [showBookmarksList, setShowBookmarksList] = useState(false);
     const [bookmarkTitle, setBookmarkTitle] = useState('');
     const [bookmarkNote, setBookmarkNote] = useState('');
+    const [showPanels, setShowPanels] = useState(true);
     const { t } = useTranslation();
+
+    const handleDoubleTap = useDoubleTap(() => {
+        setShowPanels(prev => !prev);
+    });
 
     useEffect(() => {
         loadBook();
@@ -201,7 +207,10 @@ export function BookReader() {
         <div
             className="flex h-screen"
             onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+            onTouchEnd={(e) => {
+                handleTouchEnd(e);
+                handleDoubleTap(e);
+            }}
         >
             <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)}>
                 <PageSidebar
@@ -219,9 +228,14 @@ export function BookReader() {
                 />
             </Sidebar>
 
-            <div className="flex-1 flex flex-col h-screen">
+            <div className="flex-1 flex flex-col h-screen relative">
                 {/* Fixed Header */}
-                <div className="flex-none bg-background border-b">
+                <div 
+                    className={cn(
+                        "fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b transition-all duration-300 ease-in-out md:translate-y-0",
+                        !showPanels && "translate-y-[-100%]"
+                    )}
+                >
                     <div className="container mx-auto p-4">
                         <div className="flex justify-between items-center">
                             <h1 className="text-2xl font-bold">{book.title}</h1>
@@ -319,7 +333,7 @@ export function BookReader() {
 
                 {/* Fixed Footer Navigation */}
                 {currentPage && !currentPage.isDeleted && (
-                    <div className="flex-none bg-background border-t">
+                    <div className="flex-none sticky bottom-0 bg-background/95 backdrop-blur-sm border-t">
                         <div className="container mx-auto p-4">
                             <div className="flex justify-between items-center">
                                 <Button
