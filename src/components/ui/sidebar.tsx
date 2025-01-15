@@ -11,21 +11,7 @@ export interface SidebarProps {
 
 export function Sidebar({ isOpen, onToggle, children }: SidebarProps) {
   const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [showHoverButton, setShowHoverButton] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isOpen && e.clientX <= 20) {
-        setShowHoverButton(true);
-      } else if (isOpen || e.clientX > 100) {
-        setShowHoverButton(false);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [isOpen]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.touches[0].clientX);
@@ -51,32 +37,47 @@ export function Sidebar({ isOpen, onToggle, children }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop hover button */}
-      {showHoverButton && !isOpen && (
+      {/* Desktop Toggle Button */}
+      <div 
+        className={cn(
+          "fixed z-50 transition-all duration-300 ease-in-out hidden md:block",
+          isOpen ? "left-64" : "left-0"
+        )}
+        style={{ 
+          top: '50%',
+          transform: 'translateY(-50%)'
+        }}
+      >
         <Button
           variant="ghost"
           size="icon"
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 hidden md:flex"
           onClick={onToggle}
+          className="bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700"
         >
-          <ChevronRight className="h-4 w-4" />
+          {isOpen ? (
+            <ChevronLeft className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
         </Button>
-      )}
+      </div>
 
+      {/* Sidebar */}
       <div
         ref={sidebarRef}
         className={cn(
-          'fixed top-0 left-0 h-full bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out z-10',
+          'fixed top-0 left-0 h-full bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out z-40',
           isOpen ? 'w-64' : 'w-0'
         )}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {/* Mobile Close Button */}
         {isOpen && (
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-2 top-2"
+            className="absolute right-2 top-2 md:hidden"
             onClick={onToggle}
           >
             <ChevronLeft className="h-4 w-4" />
