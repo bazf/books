@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 export default defineConfig({
+  base: '/books/', // Add this line - should match your repository name
   plugins: [
     react(),
     VitePWA({
@@ -14,6 +15,8 @@ export default defineConfig({
         short_name: 'BookReader',
         description: 'Mobile-friendly book reader application',
         theme_color: '#ffffff',
+        start_url: '/books/', // Add this line
+        scope: '/books/', // Add this line
         icons: [
           {
             src: 'pwa-192x192.png',

@@ -3,9 +3,11 @@ import { BookList } from './components/BookList'
 import { BookReader } from './components/BookReader'
 import { Settings } from './components/Settings'
 
-export default function App() {
+export default function App() {  
+  const basename = '/books'
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route path="/" element={<BookList />} />
         <Route path="/book/:id" element={<BookReader />} />
