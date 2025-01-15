@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { db } from '../../../../lib/db';
 import { analyzeImage } from '../../../../lib/gemini';
-import { BookPage } from '../../../../types';
+import { Book, BookPage } from '../../../../types';
 import { cn } from '../../../../lib/utils';
 
 interface AddPageDialogProps {
@@ -32,40 +32,42 @@ export function AddPageDialog({
         }
 
         setIsProcessing(true);
-        setProcessingStatus('Reading image...');
+        setProcessingStatus(t('readingImage'));
 
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
                 const imageData = e.target?.result as string;
-                setProcessingStatus('Analyzing image with Gemini...');
-                const text = await analyzeImage(settings.geminiApiKey!, imageData);
+                setProcessingStatus(t('analyzingImage'));
+                
+                // Get current book for context
+                const book = await db.getBook(bookId);
+                if (!book) throw new Error('Book not found');
+
+                const text = await analyzeImage(settings.geminiApiKey!, imageData, book);
 
                 if (!text || typeof text !== 'string') {
                     throw new Error('Invalid response from Gemini API');
                 }
 
-                setProcessingStatus('Saving page...');
-                const book = await db.getBook(bookId);
+                setProcessingStatus(t('savingPage'));
                 
-                if (book) {
-                    const newPage: BookPage = {
-                        id: crypto.randomUUID(),
-                        content: text,
-                        pageNumber: book.pages.length + 1
-                    };
+                const newPage: BookPage = {
+                    id: crypto.randomUUID(),
+                    content: text,
+                    pageNumber: book.pages.length + 1
+                };
 
-                    const updatedBook = {
-                        ...book,
-                        pages: [...(book.pages || []), newPage],
-                        currentPage: book.pages ? book.pages.length : 0,
-                        lastModified: Date.now()
-                    };
+                const updatedBook: Book = {
+                    ...book,
+                    pages: [...(book.pages || []), newPage],
+                    currentPage: book.pages ? book.pages.length : 0,
+                    lastModified: Date.now()
+                };
 
-                    await db.saveBook(updatedBook);
-                    onPageAdded();
-                    onOpenChange(false);
-                }
+                await db.saveBook(updatedBook);
+                onPageAdded();
+                onOpenChange(false);
             } catch (error) {
                 console.error('Error processing image:', error);
                 alert(t('imageAnalysisError'));

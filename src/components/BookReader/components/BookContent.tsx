@@ -35,15 +35,16 @@ export function BookContent({ book, onRestorePage, onAddFirstPage }: BookContent
         <div className="flex-1 overflow-y-auto">
             <div className="container mx-auto p-4">
                 {currentPage && !currentPage.isDeleted && (
-                    <div className="prose dark:prose-invert max-w-none mb-6 whitespace-pre-wrap">
+                    <div className="prose dark:prose-invert max-w-none mb-6">
                         {currentPage.chapterTitle && (
                             <h2 className="text-xl font-semibold mb-4">
                                 {currentPage.chapterTitle}
                             </h2>
                         )}
-                        <div className="leading-relaxed">
-                            {currentPage.content}
-                        </div>
+                        <div 
+                            className="leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: currentPage.content }}
+                        />
                     </div>
                 )}
 
