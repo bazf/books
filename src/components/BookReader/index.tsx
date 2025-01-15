@@ -1,6 +1,6 @@
 import React, { useState, useEffect, TouchEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Book, BookPage } from '../../types';
+import { Book, BookPage, BookSettings } from '../../types';
 import { db } from '../../lib/db';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useDoubleTap } from '../../hooks/useDoubleTap';
@@ -12,6 +12,7 @@ import { BookFooter } from './components/BookFooter';
 import { AddPageDialog } from './components/dialogs/AddPageDialog';
 import { AddBookmarkDialog } from './components/dialogs/AddBookmarkDialog';
 import { BookmarksListDialog } from './components/dialogs/BookmarksListDialog';
+import { BookSettingsDialog } from './components/dialogs/BookSettingsDialog';
 
 export function BookReader() {
     const { id } = useParams<{ id: string }>();
@@ -21,6 +22,7 @@ export function BookReader() {
     const [showAddPage, setShowAddPage] = useState(false);
     const [showAddBookmark, setShowAddBookmark] = useState(false);
     const [showBookmarksList, setShowBookmarksList] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [showPanels, setShowPanels] = useState(true);
@@ -58,6 +60,17 @@ export function BookReader() {
         }
         setTouchStart(null);
     };
+
+    async function handleSettingsChange(settings: BookSettings) {
+        if (!book || !id) return;
+        const updatedBook = {
+            ...book,
+            settings,
+            lastModified: Date.now()
+        };
+        await db.saveBook(updatedBook);
+        setBook(updatedBook);
+    }
 
     async function handleAddBookmark(title: string, note?: string) {
         if (!book || !id) return;
@@ -158,6 +171,7 @@ export function BookReader() {
                     onAddPage={() => setShowAddPage(true)}
                     onAddBookmark={() => setShowAddBookmark(true)}
                     onShowBookmarks={() => setShowBookmarksList(true)}
+                    onShowSettings={() => setShowSettings(true)}
                     onRemoveBookmark={handleRemoveBookmark}
                 />
 
@@ -191,6 +205,13 @@ export function BookReader() {
                     bookmarks={book.bookmarks}
                     onBookmarkClick={handleGoToBookmark}
                     onBookmarkRemove={handleRemoveBookmark}
+                />
+
+                <BookSettingsDialog
+                    book={book}
+                    open={showSettings}
+                    onOpenChange={setShowSettings}
+                    onSettingsChange={handleSettingsChange}
                 />
             </div>
         </div>

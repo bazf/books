@@ -14,10 +14,10 @@ interface StructuredPageContent {
   chapterTitle?: string;
   content: Array<{
     type: 'paragraph' | 'heading' | 'list' | 'table' | 'blockquote';
-    level?: number; // For headings (1-6)
+    level?: number;
     content: string;
-    items?: string[]; // For lists
-    rows?: string[][]; // For tables
+    items?: string[];
+    rows?: string[][];
   }>;
 }
 
@@ -26,7 +26,6 @@ export async function analyzeImage(
   imageData: string, 
   book?: Book
 ): Promise<string> {
-  // Get context from previous page if available
   let contextText = '';
   if (book && book.pages.length > 0) {
     const previousPage = book.pages[book.currentPage];
@@ -39,8 +38,35 @@ export async function analyzeImage(
     }
   }
 
+  const targetLanguage = book?.settings?.translationLanguage;
+  const languagePrompt = targetLanguage 
+    ? `Extract the text from the image and translate it into ${targetLanguage}.
+
+Instructions for translation:
+1. Provide a natural, idiomatic translation that sounds native in ${targetLanguage}
+2. Adapt measurements according to these rules:
+   - For Ukrainian, German, French, Polish, Italian: Convert to metric system
+     * inches → centimeters (multiply by 2.54)
+     * feet → meters (multiply by 0.3048)
+     * yards → meters (multiply by 0.9144)
+     * miles → kilometers (multiply by 1.60934)
+     * pounds → kilograms (multiply by 0.45359)
+     * ounces → grams (multiply by 28.3495)
+     * Fahrenheit → Celsius ((°F - 32) × 5/9)
+   - For US English: Keep imperial measurements
+   - Round converted values appropriately for readability
+3. Adapt cultural references and idioms to be understood by ${targetLanguage} speakers
+4. Follow proper grammar, punctuation, and capitalization rules for ${targetLanguage}
+5. Maintain the original text's tone and formality level
+6. Preserve any technical terminology appropriately
+
+Provide ONLY the translated content with adapted measurements, no original text.`
+    : 'Extract and format the text from this image in its original language.';
+
   const prompt = `
-Analyze the image and return a structured JSON response with the following format:
+${languagePrompt}
+
+Return a structured JSON response with the following format:
 {
   "chapterTitle": "optional chapter title if detected",
   "content": [
@@ -102,58 +128,62 @@ Return valid JSON that matches the specified structure exactly.`;
   }
 
   try {
-    const structuredContent: StructuredPageContent = JSON.parse(data.candidates[0].content.parts[0].text);
-    
-    // Convert structured content to HTML
-    let html = '';
-    
-    if (structuredContent.chapterTitle) {
-      html += `<h1 class="text-2xl font-bold mb-4">${structuredContent.chapterTitle}</h1>\n`;
-    }
-
-    for (const block of structuredContent.content) {
-      switch (block.type) {
-        case 'heading':
-          html += `<h${block.level} class="text-xl font-semibold my-4">${block.content}</h${block.level}>\n`;
-          break;
-        
-        case 'paragraph':
-          html += `<p class="mb-4">${block.content}</p>\n`;
-          break;
-        
-        case 'list':
-          if (block.items?.length) {
-            html += '<ul class="list-disc pl-6 mb-4">\n';
-            block.items.forEach(item => {
-              html += `  <li class="mb-2">${item}</li>\n`;
-            });
-            html += '</ul>\n';
-          }
-          break;
-        
-        case 'table':
-          if (block.rows?.length) {
-            html += '<table class="w-full border-collapse mb-4">\n';
-            block.rows.forEach(row => {
-              html += '  <tr>\n';
-              row.forEach(cell => {
-                html += `    <td class="border p-2">${cell}</td>\n`;
-              });
-              html += '  </tr>\n';
-            });
-            html += '</table>\n';
-          }
-          break;
-        
-        case 'blockquote':
-          html += `<blockquote class="border-l-4 border-gray-300 pl-4 my-4">${block.content}</blockquote>\n`;
-          break;
-      }
-    }
-
-    return html;
+    const structuredContent: StructuredPageContent = JSON.parse(
+      data.candidates[0].content.parts[0].text
+    );
+    return convertToHtml(structuredContent);
   } catch (error) {
     console.error('Error parsing Gemini response:', error);
     throw new Error('Invalid JSON response from Gemini API');
   }
+}
+
+function convertToHtml(structuredContent: StructuredPageContent): string {
+  let html = '';
+  
+  if (structuredContent.chapterTitle) {
+    html += `<h1 class="text-2xl font-bold mb-4">${structuredContent.chapterTitle}</h1>\n`;
+  }
+
+  for (const block of structuredContent.content) {
+    switch (block.type) {
+      case 'heading':
+        html += `<h${block.level} class="text-xl font-semibold my-4">${block.content}</h${block.level}>\n`;
+        break;
+      
+      case 'paragraph':
+        html += `<p class="mb-4">${block.content}</p>\n`;
+        break;
+      
+      case 'list':
+        if (block.items?.length) {
+          html += '<ul class="list-disc pl-6 mb-4">\n';
+          block.items.forEach(item => {
+            html += `  <li class="mb-2">${item}</li>\n`;
+          });
+          html += '</ul>\n';
+        }
+        break;
+      
+      case 'table':
+        if (block.rows?.length) {
+          html += '<table class="w-full border-collapse mb-4">\n';
+          block.rows.forEach(row => {
+            html += '  <tr>\n';
+            row.forEach(cell => {
+              html += `    <td class="border p-2">${cell}</td>\n`;
+            });
+            html += '  </tr>\n';
+          });
+          html += '</table>\n';
+        }
+        break;
+      
+      case 'blockquote':
+        html += `<blockquote class="border-l-4 border-gray-300 pl-4 my-4">${block.content}</blockquote>\n`;
+        break;
+    }
+  }
+
+  return html;
 }

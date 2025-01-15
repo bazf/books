@@ -6,6 +6,11 @@ export interface Book {
     language: string;
     createdAt: number;
     bookmarks: Bookmark[];
+    settings?: BookSettings;
+}
+
+export interface BookSettings {
+    translationLanguage: string | null; // null means no translation
 }
 
 export interface BookPage {
@@ -20,7 +25,7 @@ export interface Bookmark {
     title: string;
     note?: string;
     createdAt: number;
-    position: number; // Page position where bookmark was added
+    position: number;
 }
 
 export interface UserSettings {

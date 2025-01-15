@@ -2,7 +2,7 @@ import React from 'react';
 import { Book } from '../../../types';
 import { Button } from '../../ui/button';
 import { useTranslation } from '../../../hooks/useTranslation';
-import { Heart, Bookmark, Plus, ArrowLeft } from 'lucide-react';
+import { Heart, Bookmark, Plus, ArrowLeft, Settings } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 
 interface BookHeaderProps {
@@ -12,6 +12,7 @@ interface BookHeaderProps {
     onAddPage: () => void;
     onAddBookmark: () => void;
     onShowBookmarks: () => void;
+    onShowSettings: () => void;
     onRemoveBookmark: (bookmarkId: string) => void;
 }
 
@@ -22,6 +23,7 @@ export function BookHeader({
     onAddPage,
     onAddBookmark,
     onShowBookmarks,
+    onShowSettings,
     onRemoveBookmark
 }: BookHeaderProps) {
     const { t } = useTranslation();
@@ -70,6 +72,14 @@ export function BookHeader({
                             aria-label={t('addPage')}
                         >
                             <Plus className="w-5 h-5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onShowSettings}
+                            aria-label={t('bookSettings')}
+                        >
+                            <Settings className="w-5 h-5" />
                         </Button>
                         <Button
                             variant="ghost"
