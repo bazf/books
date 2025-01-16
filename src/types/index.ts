@@ -7,16 +7,20 @@ export interface Book {
     createdAt: number;
     bookmarks: Bookmark[];
     settings?: BookSettings;
+    deletedPages?: string[];
 }
 
 export interface BookSettings {
-    translationLanguage: string | null; // null means no translation
+    translationLanguage: string | null;
 }
 
 export interface BookPage {
     id: string;
     content: string;
     chapterTitle?: string;
+    shortName?: string;
+    isDeleted?: boolean;
+    pageNumber?: number;
 }
 
 export interface Bookmark {

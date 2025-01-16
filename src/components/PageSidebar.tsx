@@ -8,6 +8,7 @@ export interface PageNavigationItem {
   id: string;
   pageNumber: number;
   chapterTitle?: string;
+  shortName?: string;
   excerpt: string;
   isDeleted?: boolean;
 }
@@ -55,9 +56,14 @@ export function PageSidebar({
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   {t('page')} {page.pageNumber}
                 </div>
-                <div className="text-sm truncate max-w-[180px]">{page.excerpt}</div>
+                <div className="text-sm font-medium mb-1">
+                  {page.shortName || t('untitled')}
+                </div>
+                <div className="text-xs text-gray-500 truncate max-w-[180px]">
+                  {page.excerpt}
+                </div>
               </div>
-              <div className="flex space-x-1">
+              <div className="flex-shrink-0">
                 {page.isDeleted ? (
                   <Button
                     variant="ghost"
@@ -66,9 +72,9 @@ export function PageSidebar({
                       e.stopPropagation();
                       onPageRestore(page.id);
                     }}
-                    className="h-8 w-8 opacity-100"
+                    className="h-8 w-8 opacity-100 hover:bg-green-100 dark:hover:bg-green-900/20"
                   >
-                    <RotateCcw className="h-4 w-4" />
+                    <RotateCcw className="h-4 w-4 text-green-600 dark:text-green-400" />
                   </Button>
                 ) : (
                   <Button
@@ -78,9 +84,9 @@ export function PageSidebar({
                       e.stopPropagation();
                       onPageDelete(page.id);
                     }}
-                    className="h-8 w-8 opacity-100"
+                    className="h-8 w-8 opacity-100 hover:bg-red-100 dark:hover:bg-red-900/20"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
                   </Button>
                 )}
               </div>

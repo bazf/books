@@ -12,6 +12,7 @@ interface GeminiResponse {
 
 interface StructuredPageContent {
   chapterTitle?: string;
+  shortName: string;
   content: Array<{
     type: 'paragraph' | 'heading' | 'list' | 'table' | 'blockquote';
     level?: number;
@@ -26,7 +27,14 @@ export async function analyzeImage(
   apiKey: string, 
   imageData: string, 
   book?: Book
-): Promise<{ newPageContent: string; previousPageUpdate?: { id: string; content: string } }> {
+): Promise<{ 
+  newPageContent: string; 
+  shortName: string;
+  previousPageUpdate?: { 
+    id: string; 
+    content: string 
+  } 
+}> {
   let contextText = '';
   let previousPageId = '';
   let previousPageFullContent = '';
@@ -51,7 +59,9 @@ Instructions for translation:
 1. Do NOT add any titles or headings that are not present in the original text
 2. Maintain the exact same document structure as the original text
 3. Provide a natural, idiomatic translation that sounds native in ${targetLanguage}
-4. Adapt measurements according to these rules:
+4. Create a concise 2-3 word description of the main topic or content of the page for the shortName field
+5. The shortName should be clear and descriptive, avoiding generic terms like "Page Content" or "Text Section"
+6. Adapt measurements according to these rules:
    - For Ukrainian, German, French, Polish, Italian: Convert to metric system
      * inches → centimeters (multiply by 2.54)
      * feet → meters (multiply by 0.3048)
@@ -61,15 +71,17 @@ Instructions for translation:
      * ounces → grams (multiply by 28.3495)
      * Fahrenheit → Celsius ((°F - 32) × 5/9)
    - For US English: Keep imperial measurements
-3. Adapt cultural references and idioms to be understood by ${targetLanguage} speakers
-4. Follow proper grammar, punctuation, and capitalization rules for ${targetLanguage}
-5. Maintain the original text's tone and formality level
-6. Preserve any technical terminology appropriately
+7. Adapt cultural references and idioms to be understood by ${targetLanguage} speakers
+8. Follow proper grammar, punctuation, and capitalization rules for ${targetLanguage}
+9. Maintain the original text's tone and formality level
+10. Preserve any technical terminology appropriately
 
 Previous page ending: "${contextText}"
 
 If needed, provide an updated version of this ending that will flow smoothly into the new content.`
-    : 'Extract and format the text from this image in its original language.';
+    : `Extract and format the text from this image in its original language.
+Please provide a concise 2-3 word description of the main topic or content in the shortName field.
+The shortName should be clear and descriptive, avoiding generic terms.`;
 
   const prompt = `${languagePrompt}
 
@@ -107,6 +119,10 @@ You must return a valid JSON object that matches the provided schema exactly.`;
               chapterTitle: {
                 type: "string",
                 description: "Optional chapter title, ONLY if it exists in the original text. Do not create new titles."
+              },
+              shortName: {
+                type: "string",
+                description: "A brief 2-3 word description of the page content"
               },
               content: {
                 type: "array",
@@ -149,7 +165,7 @@ You must return a valid JSON object that matches the provided schema exactly.`;
                 description: "Optional modified version of the previous page ending for smooth transition"
               }
             },
-            required: ["content"]
+            required: ["content", "shortName"]
           }
         }
       })
@@ -178,6 +194,7 @@ You must return a valid JSON object that matches the provided schema exactly.`;
       
       return {
         newPageContent: newPageHtml,
+        shortName: structuredContent.shortName,
         previousPageUpdate: {
           id: previousPageId,
           content: updatedPreviousContent
@@ -185,7 +202,10 @@ You must return a valid JSON object that matches the provided schema exactly.`;
       };
     }
     
-    return { newPageContent: newPageHtml };
+    return { 
+      newPageContent: newPageHtml,
+      shortName: structuredContent.shortName
+    };
   } catch (error) {
     console.error('Error parsing Gemini response:', error);
     throw new Error('Invalid JSON response from Gemini API');

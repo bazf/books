@@ -129,7 +129,8 @@ export function BookReader() {
             id: page.id,
             pageNumber: index + 1,
             chapterTitle: page.chapterTitle,
-            excerpt: page.content.slice(0, 50) + '...',
+            shortName: page.shortName,
+            excerpt: page.content.replace(/<[^>]+>/g, '').slice(0, 50) + '...',
             isDeleted: page.isDeleted
         }));
     }

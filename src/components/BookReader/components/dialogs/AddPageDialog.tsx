@@ -44,7 +44,7 @@ export function AddPageDialog({
                 const book = await db.getBook(bookId);
                 if (!book) throw new Error('Book not found');
 
-                const { newPageContent, previousPageUpdate } = await analyzeImage(
+                const { newPageContent, previousPageUpdate, shortName } = await analyzeImage(
                     settings.geminiApiKey!,
                     imageData,
                     book
@@ -69,7 +69,8 @@ export function AddPageDialog({
                 const newPage: BookPage = {
                     id: crypto.randomUUID(),
                     content: newPageContent,
-                    pageNumber: book.pages.length + 1
+                    pageNumber: book.pages.length + 1,
+                    shortName: shortName || t('untitled')
                 };
 
                 // Add new page
