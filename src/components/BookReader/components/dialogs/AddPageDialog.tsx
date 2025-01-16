@@ -44,24 +44,41 @@ export function AddPageDialog({
                 const book = await db.getBook(bookId);
                 if (!book) throw new Error('Book not found');
 
-                const text = await analyzeImage(settings.geminiApiKey!, imageData, book);
+                const { newPageContent, previousPageUpdate } = await analyzeImage(
+                    settings.geminiApiKey!,
+                    imageData,
+                    book
+                );
 
-                if (!text || typeof text !== 'string') {
+                if (!newPageContent) {
                     throw new Error('Invalid response from Gemini API');
                 }
 
                 setProcessingStatus(t('savingPage'));
+
+                // Update previous page if needed
+                let updatedPages = [...(book.pages || [])];
+                if (previousPageUpdate) {
+                    updatedPages = updatedPages.map(page =>
+                        page.id === previousPageUpdate.id
+                            ? { ...page, content: previousPageUpdate.content }
+                            : page
+                    );
+                }
                 
                 const newPage: BookPage = {
                     id: crypto.randomUUID(),
-                    content: text,
+                    content: newPageContent,
                     pageNumber: book.pages.length + 1
                 };
 
+                // Add new page
+                updatedPages.push(newPage);
+
                 const updatedBook: Book = {
                     ...book,
-                    pages: [...(book.pages || []), newPage],
-                    currentPage: book.pages ? book.pages.length : 0,
+                    pages: updatedPages,
+                    currentPage: updatedPages.length - 1,
                     lastModified: Date.now()
                 };
 

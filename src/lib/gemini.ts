@@ -19,22 +19,27 @@ interface StructuredPageContent {
     items?: string[];
     rows?: string[][];
   }>;
+  previousPageEnding?: string;
 }
 
 export async function analyzeImage(
   apiKey: string, 
   imageData: string, 
   book?: Book
-): Promise<string> {
+): Promise<{ newPageContent: string; previousPageUpdate?: { id: string; content: string } }> {
   let contextText = '';
+  let previousPageId = '';
+  let previousPageFullContent = '';
+  
   if (book && book.pages.length > 0) {
     const previousPage = book.pages[book.currentPage];
     if (previousPage) {
-      const content = previousPage.content;
-      const lastParagraphMatch = content.match(/[^\n]+$/);
+      previousPageId = previousPage.id;
+      previousPageFullContent = previousPage.content;
+      const lastParagraphMatch = previousPageFullContent.match(/<p[^>]*>([^<]+)<\/p>\s*$/);
       contextText = lastParagraphMatch 
-        ? lastParagraphMatch[0]
-        : content.slice(-200);
+        ? lastParagraphMatch[1]
+        : previousPageFullContent.replace(/<[^>]+>/g, '').slice(-200);
     }
   }
 
@@ -43,8 +48,10 @@ export async function analyzeImage(
     ? `Extract the text from the image and translate it into ${targetLanguage}.
 
 Instructions for translation:
-1. Provide a natural, idiomatic translation that sounds native in ${targetLanguage}
-2. Adapt measurements according to these rules:
+1. Do NOT add any titles or headings that are not present in the original text
+2. Maintain the exact same document structure as the original text
+3. Provide a natural, idiomatic translation that sounds native in ${targetLanguage}
+4. Adapt measurements according to these rules:
    - For Ukrainian, German, French, Polish, Italian: Convert to metric system
      * inches → centimeters (multiply by 2.54)
      * feet → meters (multiply by 0.3048)
@@ -54,42 +61,19 @@ Instructions for translation:
      * ounces → grams (multiply by 28.3495)
      * Fahrenheit → Celsius ((°F - 32) × 5/9)
    - For US English: Keep imperial measurements
-   - Round converted values appropriately for readability
 3. Adapt cultural references and idioms to be understood by ${targetLanguage} speakers
 4. Follow proper grammar, punctuation, and capitalization rules for ${targetLanguage}
 5. Maintain the original text's tone and formality level
 6. Preserve any technical terminology appropriately
 
-Provide ONLY the translated content with adapted measurements, no original text.`
+Previous page ending: "${contextText}"
+
+If needed, provide an updated version of this ending that will flow smoothly into the new content.`
     : 'Extract and format the text from this image in its original language.';
 
-  const prompt = `
-${languagePrompt}
+  const prompt = `${languagePrompt}
 
-Return a structured JSON response with the following format:
-{
-  "chapterTitle": "optional chapter title if detected",
-  "content": [
-    {
-      "type": "heading" | "paragraph" | "list" | "table" | "blockquote",
-      "level": number (1-6, for headings only),
-      "content": "text content",
-      "items": ["array of items for lists only"],
-      "rows": [["array of arrays for table cells only"]]
-    }
-  ]
-}
-
-Rules:
-1. Detect and preserve the document structure
-2. For lists, split items into the "items" array
-3. For tables, organize cells into the "rows" array
-4. Recognize chapter titles and headings
-5. Preserve paragraph breaks
-6. If content appears to continue from this context, ensure proper flow:
-${contextText}
-
-Return valid JSON that matches the specified structure exactly.`;
+You must return a valid JSON object that matches the provided schema exactly.`;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -100,6 +84,7 @@ Return valid JSON that matches the specified structure exactly.`;
       },
       body: JSON.stringify({
         contents: [{
+          role: "user",
           parts: [
             { text: prompt },
             {
@@ -115,7 +100,57 @@ Return valid JSON that matches the specified structure exactly.`;
           topK: 40,
           topP: 0.95,
           maxOutputTokens: 8192,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              chapterTitle: {
+                type: "string",
+                description: "Optional chapter title, ONLY if it exists in the original text. Do not create new titles."
+              },
+              content: {
+                type: "array",
+                description: "Array of content blocks",
+                items: {
+                  type: "object",
+                  required: ["type", "content"],
+                  properties: {
+                    type: {
+                      type: "string",
+                      enum: ["heading", "paragraph", "list", "table", "blockquote"],
+                      description: "Type of content block"
+                    },
+                    level: {
+                      type: "number",
+                      description: "Heading level (1-6), only for heading type"
+                    },
+                    content: {
+                      type: "string",
+                      description: "Text content"
+                    },
+                    items: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Array of list items, only for list type"
+                    },
+                    rows: {
+                      type: "array",
+                      items: {
+                        type: "array",
+                        items: { type: "string" }
+                      },
+                      description: "Array of table rows, only for table type"
+                    }
+                  }
+                }
+              },
+              previousPageEnding: {
+                type: "string",
+                description: "Optional modified version of the previous page ending for smooth transition"
+              }
+            },
+            required: ["content"]
+          }
         }
       })
     }
@@ -131,7 +166,26 @@ Return valid JSON that matches the specified structure exactly.`;
     const structuredContent: StructuredPageContent = JSON.parse(
       data.candidates[0].content.parts[0].text
     );
-    return convertToHtml(structuredContent);
+    
+    const newPageHtml = convertToHtml(structuredContent);
+    
+    if (previousPageId && structuredContent.previousPageEnding) {
+      const lastParagraphRegex = /(<p[^>]*>[^<]+<\/p>)\s*$/;
+      const updatedPreviousContent = previousPageFullContent.replace(
+        lastParagraphRegex,
+        `<p class="mb-4">${structuredContent.previousPageEnding}</p>`
+      );
+      
+      return {
+        newPageContent: newPageHtml,
+        previousPageUpdate: {
+          id: previousPageId,
+          content: updatedPreviousContent
+        }
+      };
+    }
+    
+    return { newPageContent: newPageHtml };
   } catch (error) {
     console.error('Error parsing Gemini response:', error);
     throw new Error('Invalid JSON response from Gemini API');
