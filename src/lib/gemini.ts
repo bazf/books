@@ -44,10 +44,15 @@ export async function analyzeImage(
     if (previousPage) {
       previousPageId = previousPage.id;
       previousPageFullContent = previousPage.content;
-      const lastParagraphMatch = previousPageFullContent.match(/<p[^>]*>([^<]+)<\/p>\s*$/);
-      contextText = lastParagraphMatch 
-        ? lastParagraphMatch[1]
-        : previousPageFullContent.replace(/<[^>]+>/g, '').slice(-200);
+      // Updated regex to handle multiple classes and potential whitespace
+      const lastParagraphMatch = previousPageFullContent.match(/<p[^>]*?>([^<]+)<\/p>\s*$/);
+      if (lastParagraphMatch) {
+        contextText = lastParagraphMatch[1].trim();
+      } else {
+        // If no paragraph tag is found, extract the last 200 characters of text content
+        const textContent = previousPageFullContent.replace(/<[^>]+>/g, ' ').trim();
+        contextText = textContent.slice(-200);
+      }
     }
   }
 
@@ -183,22 +188,35 @@ You must return a valid JSON object that matches the provided schema exactly.`;
       data.candidates[0].content.parts[0].text
     );
     
+    // Ensure partial list items are included
+    if (previousPageFullContent && previousPageFullContent.includes('<li') && !previousPageFullContent.includes('</li>')) {
+      // If previous page ends with an incomplete list item, include it in the new content
+      const partialListItem = previousPageFullContent.match(/<li[^>]*>([^<]+)$/)?.[1] || '';
+      if (partialListItem && structuredContent.content[0]?.type !== 'list') {
+        structuredContent.content.unshift({
+          type: 'list',
+          items: [partialListItem]
+        });
+      }
+    }
+    
     const newPageHtml = convertToHtml(structuredContent);
     
     if (previousPageId && structuredContent.previousPageEnding) {
-      const lastParagraphRegex = /(<p[^>]*>[^<]+<\/p>)\s*$/;
+      // Updated to handle multiple paragraph classes and ensure proper structure
+      const lastParagraphRegex = /(<p[^>]*?>)[^<]+(<\/p>)\s*$/;
       const updatedPreviousContent = previousPageFullContent.replace(
         lastParagraphRegex,
-        `<p class="mb-4">${structuredContent.previousPageEnding}</p>`
+        `$1${structuredContent.previousPageEnding}$2`
       );
       
       return {
         newPageContent: newPageHtml,
         shortName: structuredContent.shortName,
-        previousPageUpdate: {
+        previousPageUpdate: updatedPreviousContent !== previousPageFullContent ? {
           id: previousPageId,
           content: updatedPreviousContent
-        }
+        } : undefined
       };
     }
     
@@ -213,7 +231,9 @@ You must return a valid JSON object that matches the provided schema exactly.`;
 }
 
 function convertToHtml(structuredContent: StructuredPageContent): string {
+  // Initialize with any ongoing list if needed
   let html = '';
+  let isListOpen = false;
   
   if (structuredContent.chapterTitle) {
     html += `<h1 class="text-2xl font-bold mb-4">${structuredContent.chapterTitle}</h1>\n`;
@@ -230,12 +250,40 @@ function convertToHtml(structuredContent: StructuredPageContent): string {
         break;
       
       case 'list':
-        if (block.items?.length) {
-          html += '<ul class="list-disc pl-6 mb-4">\n';
-          block.items.forEach(item => {
-            html += `  <li class="mb-2">${item}</li>\n`;
-          });
-          html += '</ul>\n';
+        const content = block.content || block.items?.join('\n');
+        if (content) {
+          if (!isListOpen) {
+            html += '<ul class="list-disc pl-6 mb-4">\n';
+            isListOpen = true;
+          }
+          // Handle both single content string and array of items
+          if (block.content) {
+            // Split content by newlines and filter out empty items
+            const items = block.content
+              .split('\n')
+              .map(item => item.trim())
+              .filter(item => item && item !== '•'); // Filter out empty items and lone bullet points
+              
+            items.forEach(item => {
+              html += `  <li class="mb-2">${item.replace(/^[•\-\*]\s*/, '')}</li>\n`;
+            });
+          } else if (block.items) {
+            const filteredItems = block.items.filter(item => item.trim()); // Filter out empty items
+            filteredItems.forEach(item => {
+              html += `  <li class="mb-2">${item}</li>\n`;
+            });
+          }
+          
+          // Check if this is the last block and the content appears incomplete
+          const isLastBlock = block === structuredContent.content[structuredContent.content.length - 1];
+          const isIncomplete = content.trim().slice(-1) !== '.';
+          
+          if (isLastBlock && isIncomplete) {
+            isListOpen = true;
+          } else {
+            html += '</ul>\n';
+            isListOpen = false;
+          }
         }
         break;
       
@@ -259,5 +307,6 @@ function convertToHtml(structuredContent: StructuredPageContent): string {
     }
   }
 
-  return html;
+  // Ensure there's no trailing whitespace
+  return html.trim();
 }
