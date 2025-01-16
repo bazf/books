@@ -114,12 +114,18 @@ export function BookReader() {
 
     async function updateCurrentPage(pageIndex: number) {
         if (!book) return;
+        
+        // Update the book state first
         const updatedBook = {
             ...book,
             currentPage: pageIndex,
             lastModified: Date.now()
         };
+        
+        // Save to database
         await db.saveBook(updatedBook);
+        
+        // Update state
         setBook(updatedBook);
     }
 

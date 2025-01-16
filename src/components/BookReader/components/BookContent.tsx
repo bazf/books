@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Book } from '../../../types';
 import { Button } from '../../ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../../ui/alert';
@@ -13,10 +13,18 @@ interface BookContentProps {
 export function BookContent({ book, onRestorePage, onAddFirstPage }: BookContentProps) {
     const { t } = useTranslation();
     const currentPage = book.pages[book.currentPage];
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    // Add effect to scroll to top when page changes
+    useEffect(() => {
+        if (contentRef.current) {
+            contentRef.current.scrollTo(0, 0);
+        }
+    }, [book.currentPage]); // Dependency on currentPage ensures scroll on page change
 
     if (book.pages.length === 0) {
         return (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto" ref={contentRef}>
                 <div className="container mx-auto p-4">
                     <div className="text-center py-12">
                         <p className="text-xl text-gray-600 dark:text-gray-400 mb-4">
@@ -32,7 +40,7 @@ export function BookContent({ book, onRestorePage, onAddFirstPage }: BookContent
     }
 
     return (
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" ref={contentRef}>
             <div className="container mx-auto p-4">
                 {currentPage && !currentPage.isDeleted && (
                     <div className="prose dark:prose-invert max-w-none mb-6">
