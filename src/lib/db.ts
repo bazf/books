@@ -98,13 +98,11 @@ class DatabaseService {
 
   async saveBook(book: Book): Promise<void> {
     try {
-      const db = await this.db;
-      // Ensure lastModified is set and bookmarks exist
+      const db = await this.db;      
       const updatedBook = {
         ...book,
         lastModified: Date.now(),
-        bookmarks: book.bookmarks || [],
-        deletedPages: book.deletedPages || []
+        bookmarks: book.bookmarks || []
       };
       await db.put('books', updatedBook);
     } catch (error) {
@@ -215,15 +213,25 @@ class DatabaseService {
     try {
       const book = await this.getBook(bookId);
       if (!book) return;
-
-      const updatedPages = book.pages.map(page =>
-        page.id === pageId ? { ...page, isDeleted: true } : page
+  
+      const updatedPages = book.pages.filter(page => page.id !== pageId);
+  
+      // Recalculate page numbers
+      const pagesWithNumbers = updatedPages.map((page, index) => ({
+        ...page,
+        pageNumber: index + 1
+      }));
+  
+      // Remove any bookmarks associated with the deleted page
+      const updatedBookmarks = book.bookmarks.filter(
+        bookmark => bookmark.pageId !== pageId
       );
-
+  
       await this.saveBook({
         ...book,
-        pages: updatedPages,
-        deletedPages: [...(book.deletedPages || []), pageId]
+        pages: pagesWithNumbers,
+        bookmarks: updatedBookmarks,
+        currentPage: Math.min(book.currentPage, pagesWithNumbers.length - 1)
       });
     } catch (error) {
       console.error('Error deleting page:', error);

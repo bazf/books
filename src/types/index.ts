@@ -7,7 +7,6 @@ export interface Book {
     createdAt: number;
     bookmarks: Bookmark[];
     settings?: BookSettings;
-    deletedPages?: string[];
 }
 
 export interface BookSettings {
@@ -19,7 +18,6 @@ export interface BookPage {
     content: string;
     chapterTitle?: string;
     shortName?: string;
-    isDeleted?: boolean;
     pageNumber?: number;
 }
 
