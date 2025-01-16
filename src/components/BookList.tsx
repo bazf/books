@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { useBooks } from '../hooks/useBooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Upload, Download, Plus, Settings } from 'lucide-react';
+import { importBookFromJson, generateUniqueBookTitle } from '../lib/utils';
 
 export function BookList() {
     const { books, loading, addBook, deleteBook } = useBooks();
@@ -14,6 +15,7 @@ export function BookList() {
     const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
     const [bookToDelete, setBookToDelete] = React.useState<string | null>(null);
     const [newBookTitle, setNewBookTitle] = React.useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (loading) {
         return (
@@ -32,7 +34,8 @@ export function BookList() {
             pages: [],
             currentPage: 0,
             language: 'en',
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            bookmarks: []
         };
 
         await addBook(newBook);
@@ -55,16 +58,85 @@ export function BookList() {
         setShowDeleteDialog(true);
     };
 
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const importedBook = importBookFromJson(text);
+            
+            if (!importedBook) {
+                alert('Invalid book file format');
+                return;
+            }
+
+            // Generate unique title if needed
+            const existingTitles = books.map(b => b.title);
+            const uniqueTitle = generateUniqueBookTitle(existingTitles, importedBook.title);
+            
+            const newBook = {
+                ...importedBook,
+                id: crypto.randomUUID(),
+                title: uniqueTitle,
+                createdAt: Date.now()
+            };
+
+            await addBook(newBook);
+            navigate(`/book/${newBook.id}`);
+        } catch (error) {
+            console.error('Error importing book:', error);
+            alert('Failed to import book');
+        }
+        
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     return (
         <div className="container mx-auto p-4">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Your Books</h1>
-                <div className="space-x-2">
-                    <Button onClick={() => setShowAddDialog(true)}>
-                        Add Book
+                <div className="flex items-center gap-1">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept=".json"
+                        onChange={handleFileImport}
+                    />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleImportClick}
+                        className="h-9 w-9"
+                        title="Import Book"
+                    >
+                        <Upload className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" onClick={() => navigate('/settings')}>
-                        Settings
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowAddDialog(true)}
+                        className="h-9 w-9"
+                        title="Add Book"
+                    >
+                        <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate('/settings')}
+                        className="h-9 w-9"
+                        title="Settings"
+                    >
+                        <Settings className="h-4 w-4" />
                     </Button>
                 </div>
             </div>
@@ -72,9 +144,26 @@ export function BookList() {
             {books.length === 0 ? (
                 <div className="text-center py-12">
                     <p className="text-xl text-gray-600 dark:text-gray-400 mb-4">No books yet</p>
-                    <Button onClick={() => setShowAddDialog(true)}>
-                        Add Your First Book
-                    </Button>
+                    <div className="flex justify-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowAddDialog(true)}
+                            className="h-9 w-9"
+                            title="Add Book"
+                        >
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleImportClick}
+                            className="h-9 w-9"
+                            title="Import Book"
+                        >
+                            <Upload className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </div>
             ) : (
                 <div className="grid gap-4">
