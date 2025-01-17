@@ -1,3 +1,4 @@
+// src/components/BookReader/components/dialogs/BookmarksListDialog.tsx
 import React from 'react';
 import { 
     Dialog, 
@@ -10,6 +11,7 @@ import { Button } from '../../../ui/button';
 import { useTranslation } from '../../../../hooks/useTranslation';
 import { Bookmark } from '../../../../types';
 import { BookmarkItem } from '../BookmarkItem';
+import { cn } from '../../../../lib/utils';
 
 interface BookmarksListDialogProps {
     open: boolean;
@@ -27,6 +29,7 @@ export function BookmarksListDialog({
     onBookmarkRemove
 }: BookmarksListDialogProps) {
     const { t } = useTranslation();
+    const hasBookmarks = bookmarks && bookmarks.length > 0;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -34,28 +37,54 @@ export function BookmarksListDialog({
                 <DialogHeader>
                     <DialogTitle>{t('bookmarks')}</DialogTitle>
                 </DialogHeader>
-                <div className="max-h-[60vh] overflow-y-auto">
-                    {bookmarks && bookmarks.length > 0 ? (
-                        <div className="space-y-4">
+                <div 
+                    className={cn(
+                        "max-h-[60vh] overflow-y-auto",
+                        !hasBookmarks && "flex items-center justify-center min-h-[200px]"
+                    )}
+                    role="region"
+                    aria-label={t('bookmarks')}
+                >
+                    {hasBookmarks ? (
+                        <div 
+                            className="space-y-4"
+                            role="list"
+                            aria-label={t('bookmarksList')}
+                        >
                             {bookmarks
                                 .sort((a, b) => a.position - b.position)
                                 .map((bookmark) => (
-                                    <BookmarkItem
+                                    <div 
                                         key={bookmark.id}
-                                        bookmark={bookmark}
-                                        onGoTo={() => onBookmarkClick(bookmark.position)}
-                                        onRemove={() => onBookmarkRemove(bookmark.id)}
-                                    />
+                                        role="listitem"
+                                    >
+                                        <BookmarkItem
+                                            bookmark={bookmark}
+                                            onGoTo={() => onBookmarkClick(bookmark.position)}
+                                            onRemove={() => {
+                                                if (window.confirm(t('deleteBookmarkConfirm'))) {
+                                                    onBookmarkRemove(bookmark.id);
+                                                }
+                                            }}
+                                        />
+                                    </div>
                                 ))}
                         </div>
                     ) : (
-                        <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                        <div 
+                            className="text-center py-8 text-gray-600 dark:text-gray-400"
+                            role="status"
+                            aria-live="polite"
+                        >
                             {t('noBookmarks')}
                         </div>
                     )}
                 </div>
                 <DialogFooter>
-                    <Button onClick={() => onOpenChange(false)}>
+                    <Button 
+                        onClick={() => onOpenChange(false)}
+                        aria-label={t('close')}
+                    >
                         {t('close')}
                     </Button>
                 </DialogFooter>

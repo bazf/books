@@ -1,3 +1,4 @@
+// src/components/BookReader/components/dialogs/AddPageDialog.tsx
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../ui/dialog';
 import { Loader2 } from 'lucide-react';
@@ -23,16 +24,24 @@ export function AddPageDialog({
     const { t } = useTranslation();
     const [isProcessing, setIsProcessing] = useState(false);
     const [processingStatus, setProcessingStatus] = useState('');
+    const [error, setError] = useState<string | null>(null);
+
+    const resetState = () => {
+        setIsProcessing(false);
+        setProcessingStatus('');
+        setError(null);
+    };
 
     async function handleImageUpload(file: File) {
         const settings = await db.getUserSettings();
         if (!settings.geminiApiKey) {
-            alert(t('noApiKey'));
+            setError(t('noApiKey'));
             return;
         }
 
         setIsProcessing(true);
         setProcessingStatus(t('readingImage'));
+        setError(null);
 
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -40,7 +49,6 @@ export function AddPageDialog({
                 const imageData = e.target?.result as string;
                 setProcessingStatus(t('analyzingImage'));
                 
-                // Get current book for context
                 const book = await db.getBook(bookId);
                 if (!book) throw new Error('Book not found');
 
@@ -51,12 +59,11 @@ export function AddPageDialog({
                 );
 
                 if (!newPageContent) {
-                    throw new Error('Invalid response from Gemini API');
+                    throw new Error(t('imageAnalysisError'));
                 }
 
                 setProcessingStatus(t('savingPage'));
 
-                // Update previous page if needed
                 let updatedPages = [...(book.pages || [])];
                 if (previousPageUpdate) {
                     updatedPages = updatedPages.map(page =>
@@ -73,7 +80,6 @@ export function AddPageDialog({
                     shortName: shortName || t('untitled')
                 };
 
-                // Add new page
                 updatedPages.push(newPage);
 
                 const updatedBook: Book = {
@@ -85,11 +91,11 @@ export function AddPageDialog({
 
                 await db.saveBook(updatedBook);
                 onPageAdded();
+                resetState();
                 onOpenChange(false);
             } catch (error) {
                 console.error('Error processing image:', error);
-                alert(t('imageAnalysisError'));
-            } finally {
+                setError(t('imageAnalysisError'));
                 setIsProcessing(false);
                 setProcessingStatus('');
             }
@@ -97,16 +103,19 @@ export function AddPageDialog({
 
         reader.onerror = (error) => {
             console.error('Error reading file:', error);
+            setError(t('fileReadError'));
             setIsProcessing(false);
             setProcessingStatus('');
-            alert(t('fileReadError'));
         };
 
         reader.readAsDataURL(file);
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={(isOpen) => {
+            if (!isOpen) resetState();
+            onOpenChange(isOpen);
+        }}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{t('addNewPage')}</DialogTitle>
@@ -114,12 +123,15 @@ export function AddPageDialog({
                 <div
                     className={cn(
                         'border-2 border-dashed rounded p-8 text-center relative',
-                        isProcessing ? 'bg-gray-50 dark:bg-gray-800' : ''
+                        isProcessing ? 'bg-gray-50 dark:bg-gray-800' : '',
+                        error ? 'border-red-500' : ''
                     )}
                     onDrop={(e) => {
                         e.preventDefault();
                         const file = e.dataTransfer.files[0];
-                        if (file) handleImageUpload(file);
+                        if (file && file.type.startsWith('image/')) {
+                            handleImageUpload(file);
+                        }
                     }}
                     onDragOver={(e) => e.preventDefault()}
                     onPaste={(e) => {
@@ -137,10 +149,12 @@ export function AddPageDialog({
                         }
                     }}
                     tabIndex={0}
+                    role="button"
+                    aria-label={t('dragDropImage')}
                 >
                     {isProcessing ? (
-                        <div className="flex flex-col items-center justify-center">
-                            <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                        <div className="flex flex-col items-center justify-center" aria-live="polite">
+                            <Loader2 className="w-8 h-8 animate-spin mb-2" aria-hidden="true" />
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                                 {processingStatus}
                             </p>
@@ -156,11 +170,24 @@ export function AddPageDialog({
                                 }}
                                 className="hidden"
                                 id="imageUpload"
+                                aria-label={t('dragDropImage')}
                             />
-                            <label htmlFor="imageUpload" className="cursor-pointer">
-                                {t('dragDropImage')}
+                            <label 
+                                htmlFor="imageUpload" 
+                                className="cursor-pointer"
+                            >
+                                <p>{t('dragDropImage')}</p>
+                                <p className="text-sm text-gray-500 mt-2">{t('pasteImage')}</p>
                             </label>
                         </>
+                    )}
+                    {error && (
+                        <div 
+                            className="text-red-500 mt-4" 
+                            role="alert"
+                        >
+                            {error}
+                        </div>
                     )}
                 </div>
             </DialogContent>

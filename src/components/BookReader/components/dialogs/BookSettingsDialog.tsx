@@ -1,3 +1,4 @@
+// src/components/BookReader/components/dialogs/BookSettingsDialog.tsx
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
@@ -21,14 +22,14 @@ interface Language {
 }
 
 const SUPPORTED_LANGUAGES: Language[] = [
-    { code: '', name: 'None' },
-    { code: 'ukrainian', name: 'Ukrainian' },
-    { code: 'spanish', name: 'Spanish' },
-    { code: 'french', name: 'French' },
-    { code: 'german', name: 'German' },
-    { code: 'italian', name: 'Italian' },
-    { code: 'portuguese', name: 'Portuguese' },
-    { code: 'polish', name: 'Polish' },
+    { code: '', name: 'none' },
+    { code: 'ukrainian', name: 'ukrainian' },
+    { code: 'spanish', name: 'spanish' },
+    { code: 'french', name: 'french' },
+    { code: 'german', name: 'german' },
+    { code: 'italian', name: 'italian' },
+    { code: 'portuguese', name: 'portuguese' },
+    { code: 'polish', name: 'polish' },
 ];
 
 export function BookSettingsDialog({
@@ -67,20 +68,32 @@ export function BookSettingsDialog({
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="translation-language">
+                        <Label 
+                            htmlFor="translation-language"
+                            className="block"
+                        >
                             {t('translationLanguage')}
                         </Label>
                         <Select
                             value={book.settings?.translationLanguage || ''}
                             onValueChange={handleLanguageChange}
+                            aria-label={t('selectTranslationLanguage')}
                         >
-                            <SelectTrigger id="translation-language">
+                            <SelectTrigger 
+                                id="translation-language"
+                                aria-label={t('currentTranslationLanguage', {
+                                    language: t(book.settings?.translationLanguage || 'none')
+                                })}
+                            >
                                 <SelectValue placeholder={t('selectLanguage')} />
                             </SelectTrigger>
                             <SelectContent>
                                 {SUPPORTED_LANGUAGES.map(lang => (
-                                    <SelectItem key={lang.code} value={lang.code}>
-                                        {lang.name}
+                                    <SelectItem 
+                                        key={lang.code} 
+                                        value={lang.code}
+                                    >
+                                        {t(lang.name)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -92,9 +105,10 @@ export function BookSettingsDialog({
                             variant="outline"
                             onClick={handleExportBook}
                             className="w-full"
+                            aria-label={t('exportBookAriaLabel', { title: book.title })}
                         >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export Book
+                            <Download className="w-4 h-4 mr-2" aria-hidden="true" />
+                            {t('exportBook')}
                         </Button>
                     </div>
                 </div>

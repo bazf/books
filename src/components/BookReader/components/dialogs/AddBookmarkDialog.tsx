@@ -1,3 +1,4 @@
+// src/components/BookReader/components/dialogs/AddBookmarkDialog.tsx
 import React, { useState } from 'react';
 import { 
     Dialog, 
@@ -26,16 +27,22 @@ export function AddBookmarkDialog({
     const { t } = useTranslation();
     const [bookmarkTitle, setBookmarkTitle] = useState('');
     const [bookmarkNote, setBookmarkNote] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
     const handleSubmit = () => {
-        onBookmarkAdd(bookmarkTitle, bookmarkNote);
-        setBookmarkTitle('');
-        setBookmarkNote('');
+        if (!bookmarkTitle.trim()) {
+            setError(t('required'));
+            return;
+        }
+
+        onBookmarkAdd(bookmarkTitle.trim(), bookmarkNote.trim());
+        handleClose();
     };
 
     const handleClose = () => {
         setBookmarkTitle('');
         setBookmarkNote('');
+        setError(null);
         onOpenChange(false);
     };
 
@@ -47,30 +54,59 @@ export function AddBookmarkDialog({
                 </DialogHeader>
                 <div className="space-y-4">
                     <div>
-                        <Label htmlFor="bookmarkTitle">{t('bookmarkTitle')}</Label>
+                        <Label htmlFor="bookmarkTitle">
+                            {t('bookmarkTitle')}
+                            <span className="text-red-500 ml-1">*</span>
+                        </Label>
                         <Input
                             id="bookmarkTitle"
                             value={bookmarkTitle}
-                            onChange={(e) => setBookmarkTitle(e.target.value)}
+                            onChange={(e) => {
+                                setBookmarkTitle(e.target.value);
+                                if (error) setError(null);
+                            }}
                             placeholder={t('bookmarkTitlePlaceholder')}
                             autoFocus
+                            aria-required="true"
+                            aria-invalid={error ? "true" : undefined}
+                            aria-describedby={error ? "bookmarkTitle-error" : undefined}
+                            error={error}
                         />
+                        {error && (
+                            <p 
+                                id="bookmarkTitle-error" 
+                                className="text-sm text-red-500 mt-1"
+                                role="alert"
+                            >
+                                {error}
+                            </p>
+                        )}
                     </div>
                     <div>
-                        <Label htmlFor="bookmarkNote">{t('bookmarkNote')}</Label>
+                        <Label htmlFor="bookmarkNote">
+                            {t('bookmarkNote')}
+                        </Label>
                         <Textarea
                             id="bookmarkNote"
                             value={bookmarkNote}
                             onChange={(e) => setBookmarkNote(e.target.value)}
                             placeholder={t('bookmarkNotePlaceholder')}
+                            aria-label={t('bookmarkNote')}
                         />
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={handleClose}>
+                    <Button 
+                        variant="outline" 
+                        onClick={handleClose}
+                        aria-label={t('cancel')}
+                    >
                         {t('cancel')}
                     </Button>
-                    <Button onClick={handleSubmit}>
+                    <Button 
+                        onClick={handleSubmit}
+                        aria-label={t('save')}
+                    >
                         {t('save')}
                     </Button>
                 </DialogFooter>

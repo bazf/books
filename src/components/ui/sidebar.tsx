@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './button';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export interface SidebarProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ export interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onToggle, children }: SidebarProps) {
+  const { t } = useTranslation();
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +55,7 @@ export function Sidebar({ isOpen, onToggle, children }: SidebarProps) {
           size="icon"
           onClick={onToggle}
           className="bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700"
+          aria-label={t(isOpen ? 'closeSidebar' : 'openSidebar')}
         >
           {isOpen ? (
             <ChevronLeft className="h-4 w-4" />
@@ -71,6 +74,7 @@ export function Sidebar({ isOpen, onToggle, children }: SidebarProps) {
         )}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        aria-hidden={!isOpen}
       >
         {/* Mobile Close Button */}
         {isOpen && (
@@ -79,6 +83,7 @@ export function Sidebar({ isOpen, onToggle, children }: SidebarProps) {
             size="icon"
             className="absolute right-2 top-2 md:hidden"
             onClick={onToggle}
+            aria-label={t('closeSidebar')}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
